@@ -109,7 +109,7 @@ id			{letter}+({letter}|{digit})*
  /* others */
 
 [;]         { return SEMICOLON;}
-[\n]        { return NEWLINE; }
+[\n]        { }
 [ \t]		{ } /* Ignore */
 [^ \t\n] 	{ } /* Ignore other charactor sets */
 <<EOF>>     { }

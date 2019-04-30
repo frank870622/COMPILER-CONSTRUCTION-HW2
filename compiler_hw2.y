@@ -44,7 +44,7 @@ void dump_symbol();
 
 %token RETURN
 %token ID SEMICOLON
-%token COMMENT NEWLINE
+%token COMMENT
 
 /* Token with return, which need to sepcify type */
 %token <i_val> I_CONST
@@ -66,15 +66,53 @@ program
 ;
 
 stat
-    : declaration
+    : declaration_stat
     | compound_stat
     | expression_stat
     | print_func
 ;
 
+declaration_stat
+    : type declaration
+    | funtcion_declation
+;
+
 declaration
-    : type ID '=' initializer SEMICOLON
-    | type ID SEMICOLON
+    : ID ASGN initializer SEMICOLON
+    | ID SEMICOLON
+    | ID ASGN initializer COMMA declaration SEMICOLON
+    | ID COMMA declaration SEMICOLON
+;
+
+initializer
+    : arithmetic_stat
+;
+
+arithmetic_stat
+    : arithmetic_stat ADD value_stat
+    | arithmetic_stat SUB value_stat
+    | high_arithmetic_stat
+    | value_stat
+;
+
+high_arithmetic_stat
+    : high_arithmetic_stat MUL value_stat
+    | high_arithmetic_stat DIV value_stat
+    | high_arithmetic_stat MOD value_stat
+    | value_stat
+;
+
+value_stat
+    : ADD value_stat;
+    | SUB value_stat;
+    | value
+;
+
+value
+    : I_CONST
+    | F_CONST
+    | STRING_STATE
+    | ID
 ;
 
 /* actions can be taken when meet the token or rule */
