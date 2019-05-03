@@ -87,22 +87,22 @@ id			{letter}+({letter}|{digit})*
 
  /* String Constant */
 \"				        { BEGIN STRING_STATE; }
-<STRING_STATE>\"		{ BEGIN INITIAL; }
-<STRING_STATE>[^"]*		{ return STRING_STATE; }
+<STRING_STATE>\"		{ BEGIN INITIAL; return STRING_TEXT; }
+<STRING_STATE>[^"]*		{ }
 
  /* Number Constant */
 {integer}	{ return I_CONST; }
 {float}	    { return F_CONST; }
 
  /* C type Comment */
-"/*"				{ BEGIN COMMENT_LINE; }
+"/*"				{ BEGIN COMMENT; }
 <COMMENT>[^*\n]+	{  }
 <COMMENT>\n			{  }
 <COMMENT>"*"		{  }
-<COMMENT>"*/"		{  BEGIN INITIAL; return COMMENT_LINE; }
+<COMMENT>"*/"		{  BEGIN INITIAL;}
 
  /* C++ type Comment */
-\/\/.*	{ return COMMENT; }
+\/\/.*	{ }
 
  /* Variable ID */
  {id}       { return ID; }
@@ -110,10 +110,10 @@ id			{letter}+({letter}|{digit})*
  /* others */
 
 [;]         { return SEMICOLON;}
-[\n]        { }
+[\n]        { CONCAT }
 [ \t]		{ } /* Ignore */
 [^ \t\n] 	{ } /* Ignore other charactor sets */
-<<EOF>>     { }
+<<EOF>>     { return 0;}
 
 %%
 

@@ -48,7 +48,8 @@ void dump_symbol();
 
 %token RETURN
 %token ID SEMICOLON
-%token COMMENT_LINE
+%token ENDFILE
+//%token COMMENT_LINE
 
 /* Token with return, which need to sepcify type */
 %token <i_val> I_CONST
@@ -65,8 +66,8 @@ void dump_symbol();
 %%
 
 program
-    : program stat
-    | COMMENT_LINE
+    : program stats
+    | stats
 ;
 
 stats
@@ -141,7 +142,9 @@ value
 
 funtcion_declation
     : type ID LB function_parameter_decl RB SEMICOLON
+    | type ID LB RB SEMICOLON
     | type ID LB function_parameter RB LCB stat_list RCB
+    | type ID LB RB LCB stat_list RCB
 ;
 
 
@@ -215,6 +218,7 @@ assignment_stat
     | ID MULASGN arithmetic_stat SEMICOLON
     | ID DIVASGN arithmetic_stat SEMICOLON
     | ID MODASGN arithmetic_stat SEMICOLON
+    | arithmetic_stat SEMICOLON
     | assignment_stat COMMA assignment_stat
 ;
 
@@ -224,6 +228,7 @@ function_call
 
 function_send_parameter
     : function_send_parameter COMMA arithmetic_stat
+    | arithmetic_stat
 ;
 
 print_func
