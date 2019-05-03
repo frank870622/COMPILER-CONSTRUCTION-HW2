@@ -1,7 +1,7 @@
 /*	Definition section */
 %{
 #include <stdio.h>
-
+#include <string.h>
 extern int yylineno;
 extern int yylex();
 extern char* yytext;   // Get current token from lex
@@ -10,10 +10,33 @@ extern char buf[256];  // Get current code line from lex
 void yyerror(char*);
 
 /* Symbol table function - you can add new function if needed. */
-int lookup_symbol();
+int lookup_symbol(char*);
 void create_symbol();
-void insert_symbol();
-void dump_symbol();
+void insert_symbol(char*, int, int, int[]);
+void dump_symbol(int);
+void clear_symbol(int);
+
+typedef struct parse_table{
+    //from 0~
+    int index;
+    char* name;
+    // 1:variable 2:function
+    int kind;
+    // 1:int 2:float 3:bool 4:string 5:void
+    int type;
+    // from 0~
+    int scope;
+    // 1:int 2:float 3:bool 4:string 5:void
+    int* attribute;
+    struct parse_table* next;
+    struct parse_table* back;
+}parse_table;
+
+parse_table *head;
+
+int scope_num = 0;
+int index_num = 0;
+int function_parameter_num = 0;
 
 %}
 
@@ -251,6 +274,7 @@ type
 int main(int argc, char** argv)
 {
     yylineno = 0;
+    create_symbol();
 
     yyparse();
 	printf("\nTotal lines: %d \n",yylineno);
@@ -266,10 +290,124 @@ void yyerror(char *s)
     printf("\n|-----------------------------------------------|\n\n");
 }
 
-void create_symbol() {}
-void insert_symbol() {}
-int lookup_symbol() {}
-void dump_symbol() {
+void create_symbol() {
+    head = (parse_table*)malloc(sizeof(parse_table));
+    head->index = -1;
+    head->name = NULL;
+    head->kind = -1;
+    head->type = -1;
+    head->scope = -1;
+    head->attribute = NULL;
+    head->next = NULL;
+    head->back = head;
+}
+
+void insert_symbol(char* Name, int Kind, int Type, int attribute[function_parameter_num]) {
+    if(head->index == -1){
+        head->index = index_num;
+        strncpy(head->name, Name, strlen(Name));
+        head->kind = Kind;
+        head->type = Type;
+        head->scope = scope_num;
+        head->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
+        for(int i = 0; i<function_parameter_num; ++i)
+            head->attribute[i] = attribute[i];
+        head->next = NULL;
+        head->back = head;
+    }
+    else{
+        parse_table* temp = head;
+        while(temp->next != NULL)   temp = temp->next;
+        temp->next = (parse_table*)malloc(sizeof(parse_table));
+        temp->next->back = temp;
+        temp = temp->next;
+
+        temp->index = index_num;
+        strncpy(temp->name, Name, strlen(Name));
+        temp->kind = Kind;
+        temp->type = Type;
+        temp->scope = scope_num;
+        temp->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
+        for(int i = 0; i<function_parameter_num; ++i)
+            temp->attribute[i] = attribute[i];
+        temp->next = NULL;
+    }
+    index_num++;
+    function_parameter_num = 0;
+}
+
+int lookup_symbol(char* Name) {
+    if(head->index == -1){
+        yyerror(("Undeclared variable %s", Name));
+    }
+    else{
+        parse_table* temp = head;
+        while(temp->next != NULL){
+            if(strcmp(temp->name, Name) == 0)   return 0;
+            temp = temp->next;
+        }   
+        yyerror(("Undeclared variable %s", Name));
+    }
+}
+
+void dump_symbol(int dump_scope_num) {
+    int index_count = 0;
     printf("\n%-10s%-10s%-12s%-10s%-10s%-10s\n\n",
            "Index", "Name", "Kind", "Type", "Scope", "Attribute");
+    if(head->index != -1){
+        parse_table* temp = head;
+        while(temp->next != NULL){
+            if(temp->scope == dump_scope_num){
+                printf("\n%-10d", index_count);
+                printf("%-10s", temp->name);
+
+                if(temp->kind ==1)          printf("%-10s", "variable");
+                else if (temp->kind ==2)    printf("%-10s", "function");
+
+                if(temp->type == 1)         printf("%-10s", "int");
+                else if(temp->type == 2)    printf("%-10s", "float");
+                else if(temp->type == 3)    printf("%-10s", "bool");
+                else if(temp->type == 4)    printf("%-10s", "string");
+                else if(temp->type == 5)    printf("%-10s", "void");
+
+                printf("%-10d", dump_scope_num);
+
+                if(temp->attribute != NULL){
+                    if(temp->attribute[0] == 1)         printf("int");
+                    else if(temp->attribute[0] == 2)    printf("float");
+                    else if(temp->attribute[0] == 3)    printf("bool");
+                    else if(temp->attribute[0] == 4)    printf("string");
+                    else if(temp->attribute[0] == 5)    printf("void");
+                    for(int i=0; i< sizeof(temp->attribute)/sizeof(temp->attribute[0]); ++i){
+                        if(temp->attribute[0] == 1)         printf(", int");
+                        else if(temp->attribute[0] == 2)    printf(", float");
+                        else if(temp->attribute[0] == 3)    printf(", bool");
+                        else if(temp->attribute[0] == 4)    printf(", string");
+                        else if(temp->attribute[0] == 5)    printf(", void");
+                    }
+                }
+                printf("\n");
+                index_count++;
+            }
+            temp = temp->next;
+        }
+        clear_symbol(dump_scope_num);
+    }
+}
+
+void clear_symbol(int scope_num){
+    if(scope_num != 0){
+        parse_table* temp = head;
+        if(temp->index != -1){
+            while(temp->next != NULL){
+                if(temp->scope == scope_num){
+                    temp->back->next = temp->next;
+                    temp->next->back = temp->back;
+                    parse_table* deletenode = temp;
+                    temp = temp -> next;
+                    free(deletenode);
+                }
+            }
+        }
+    }
 }
