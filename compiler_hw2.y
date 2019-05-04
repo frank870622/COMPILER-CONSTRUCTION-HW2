@@ -37,6 +37,7 @@ parse_table *head;
 int scope_num = 0;
 int index_num = 0;
 int function_parameter_num = 0;
+int variable_declare_count = 0;
 
 %}
 
@@ -302,16 +303,20 @@ void create_symbol() {
     head->back = head;
 }
 
-void insert_symbol(char* Name, int Kind, int Type, int attribute[function_parameter_num]) {
+void insert_symbol(char* Name, int Kind, int Type, int* Attribute) {
     if(head->index == -1){
         head->index = index_num;
+        head->name = (char*)malloc(sizeof(char)*strlen(Name)+1);
         strncpy(head->name, Name, strlen(Name));
         head->kind = Kind;
         head->type = Type;
         head->scope = scope_num;
-        head->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
-        for(int i = 0; i<function_parameter_num; ++i)
-            head->attribute[i] = attribute[i];
+        
+        if(function_parameter_num > 0){
+            head->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
+            for(int i = 0; i<function_parameter_num; ++i)
+                head->attribute[i] = Attribute[i];
+        }
         head->next = NULL;
         head->back = head;
     }
@@ -323,13 +328,17 @@ void insert_symbol(char* Name, int Kind, int Type, int attribute[function_parame
         temp = temp->next;
 
         temp->index = index_num;
+        head->name = (char*)malloc(sizeof(char)*strlen(Name)+1);
         strncpy(temp->name, Name, strlen(Name));
         temp->kind = Kind;
         temp->type = Type;
         temp->scope = scope_num;
-        temp->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
-        for(int i = 0; i<function_parameter_num; ++i)
-            temp->attribute[i] = attribute[i];
+
+        if(function_parameter_num > 0){
+            temp->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
+            for(int i = 0; i<function_parameter_num; ++i)
+                temp->attribute[i] = Attribute[i];
+        }
         temp->next = NULL;
     }
     index_num++;
@@ -356,13 +365,13 @@ void dump_symbol(int dump_scope_num) {
            "Index", "Name", "Kind", "Type", "Scope", "Attribute");
     if(head->index != -1){
         parse_table* temp = head;
-        while(temp->next != NULL){
+        do{
             if(temp->scope == dump_scope_num){
                 printf("\n%-10d", index_count);
                 printf("%-10s", temp->name);
 
-                if(temp->kind ==1)          printf("%-10s", "variable");
-                else if (temp->kind ==2)    printf("%-10s", "function");
+                if(temp->kind ==1)          printf("%-12s", "variable");
+                else if (temp->kind ==2)    printf("%-12s", "function");
 
                 if(temp->type == 1)         printf("%-10s", "int");
                 else if(temp->type == 2)    printf("%-10s", "float");
@@ -378,19 +387,19 @@ void dump_symbol(int dump_scope_num) {
                     else if(temp->attribute[0] == 3)    printf("bool");
                     else if(temp->attribute[0] == 4)    printf("string");
                     else if(temp->attribute[0] == 5)    printf("void");
-                    for(int i=0; i< sizeof(temp->attribute)/sizeof(temp->attribute[0]); ++i){
-                        if(temp->attribute[0] == 1)         printf(", int");
-                        else if(temp->attribute[0] == 2)    printf(", float");
-                        else if(temp->attribute[0] == 3)    printf(", bool");
-                        else if(temp->attribute[0] == 4)    printf(", string");
-                        else if(temp->attribute[0] == 5)    printf(", void");
+                    for(int i=1; i< sizeof(temp->attribute)/sizeof(temp->attribute[0]); ++i){
+                        if(temp->attribute[i] == 1)         printf(", int");
+                        else if(temp->attribute[i] == 2)    printf(", float");
+                        else if(temp->attribute[i] == 3)    printf(", bool");
+                        else if(temp->attribute[i] == 4)    printf(", string");
+                        else if(temp->attribute[i] == 5)    printf(", void");
                     }
                 }
                 printf("\n");
                 index_count++;
             }
             temp = temp->next;
-        }
+        }while(temp != NULL);
         clear_symbol(dump_scope_num);
     }
 }
