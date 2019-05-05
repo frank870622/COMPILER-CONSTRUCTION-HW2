@@ -7,20 +7,24 @@ extern int yylex();
 extern char* yytext;   // Get current token from lex
 extern char buf[256];  // Get current code line from lex
 
+#define CLEANBUF { buf[0] = '\0'; }
+
 void yyerror(char*);
 
 /* Symbol table function - you can add new function if needed. */
 int lookup_symbol(char*);
 void create_symbol();
-void insert_symbol(char*, int, int, int[]);
+void insert_symbol(char*, int, int);
 void dump_symbol(int);
+void set_symbol_type();
+void set_function_parameter();
 void clear_symbol(int);
 
 typedef struct parse_table{
     //from 0~
     int index;
     char* name;
-    // 1:variable 2:function
+    // 1:variable 2:function 3:parameter
     int kind;
     // 1:int 2:float 3:bool 4:string 5:void
     int type;
@@ -38,6 +42,16 @@ int scope_num = 0;
 int index_num = 0;
 int function_parameter_num = 0;
 int variable_declare_count = 0;
+int function_parameter_array[512];
+char error_buf[128];
+int had_print_flag = 0;
+int dump_scope_flag = -1;
+int syntax_error_flag = 0;
+
+void reset_function_array();
+void print_error(char*, char*);
+void can_dump(int);
+
 
 %}
 
@@ -71,17 +85,18 @@ int variable_declare_count = 0;
 %token TRUE FALSE
 
 %token RETURN
-%token ID SEMICOLON
+%token SEMICOLON
 %token ENDFILE
-//%token COMMENT_LINE
+
 
 /* Token with return, which need to sepcify type */
 %token <i_val> I_CONST
 %token <f_val> F_CONST
 %token <string> STRING_TEXT
+%token <string> ID
 
 /* Nonterminal with return, which need to sepcify type */
-//%type <f_val> stat
+%type <i_val> type
 
 /* Yacc will start at this nonterminal */
 %start program
@@ -108,18 +123,42 @@ stat
     : declaration_stat
     | compound_stat
     | expression_stat
-    | print_func
+    | print_func SEMICOLON
 ;
 
 declaration_stat
-    : type declaration
+    : type declaration SEMICOLON    {set_symbol_type($1);}
 ;
 
 declaration
-    : ID ASGN initializer SEMICOLON
-    | ID SEMICOLON
-    | ID ASGN initializer COMMA declaration SEMICOLON
-    | ID COMMA declaration SEMICOLON
+    : ID ASGN initializer   {
+        if(lookup_symbol($1) != 0){
+            insert_symbol($1, 1, -1);
+            ++variable_declare_count;
+        }
+        else    print_error("Redeclared variable ", $1);
+    }
+    | ID    {
+        if(lookup_symbol($1) != 0){
+            insert_symbol($1, 1, -1);
+            ++variable_declare_count;
+        }
+        else    print_error("Redeclared variable ", $1);
+    }
+    | ID ASGN initializer COMMA declaration {
+        if(lookup_symbol($1) != 0){
+            insert_symbol($1, 1, -1);
+            ++variable_declare_count;
+        }
+        else    print_error("Redeclared variable ", $1);
+    }
+    | ID COMMA declaration {
+        if(lookup_symbol($1) != 0){
+            insert_symbol($1, 1, -1);
+            ++variable_declare_count;
+        }
+        else    print_error("Redeclared variable ", $1);
+    }
 ;
 
 initializer
@@ -161,25 +200,69 @@ value
     | F_CONST
     | TRUE
     | FALSE
-    | ID
+    | ID {
+        if(lookup_symbol($1) == -1)
+            print_error("Undeclared variable ", $1);
+    }
 ;
 
 funtcion_declation
-    : type ID LB function_parameter_decl RB SEMICOLON
-    | type ID LB RB SEMICOLON
-    | type ID LB function_parameter RB LCB stat_list RCB
-    | type ID LB RB LCB stat_list RCB
+    : function_declation_part1 function_declation_part2 {
+        if(function_parameter_num > 0)
+            set_function_parameter();
+        can_dump(scope_num);
+        --scope_num;
+    }
+;
+
+function_declation_part1
+    : type ID LB {
+        if(lookup_symbol($2) == -1){
+            insert_symbol($2, 2, $1);
+        }
+        else print_error("Redeclared function ", $2);
+        ++scope_num;
+    }
+;
+
+function_declation_part2
+    : function_parameter_decl RB SEMICOLON
+    | RB SEMICOLON
+    | function_parameter RB LCB stat_list RCB
+    | RB LCB stat_list RCB
 ;
 
 
 function_parameter_decl
-    : type
-    | function_parameter_decl COMMA type
+    : type {
+        function_parameter_array[function_parameter_num] = $1;
+        ++function_parameter_num;
+    }
+    | function_parameter_decl COMMA type    {
+        function_parameter_array[function_parameter_num] = $3;
+        ++function_parameter_num;
+    }
 ;
 
 function_parameter
-    : type ID
-    | function_parameter COMMA type ID
+    : type ID   {
+        function_parameter_array[function_parameter_num] = $1;
+        ++function_parameter_num;
+
+        if(lookup_symbol($2) != 0){
+            insert_symbol($2, 3, $1);
+        }
+        else    print_error("Redeclared variable ", $2);
+    }
+    | function_parameter COMMA type ID{
+        function_parameter_array[function_parameter_num] = $3;
+        ++function_parameter_num;
+
+        if(lookup_symbol($4) != 0){
+            insert_symbol($4, 3, $3);
+        }
+        else    print_error("Redeclared variable ", $4);
+    }
 ;
 
 compound_stat
@@ -193,14 +276,31 @@ if_else_stat
 ;
 
 if_stat
-    : IF LB logical_stats RB SEMICOLON
-    | IF LB logical_stats RB stat
-    | IF LB logical_stats RB LCB stat_list RCB
+    : if_stat_part1 if_stat_part2   {can_dump(scope_num); --scope_num;}
+;
+
+if_stat_part1
+    : IF LB logical_stats RB    {++scope_num;}
+;
+
+if_stat_part2
+    : SEMICOLON
+    | stat
+    | LCB stat_list RCB
 ;
 
 else_stat
-    : ELSE stat SEMICOLON
-    | ELSE LCB stat_list RCB
+    : else_stat_part1 else_stat_part2   {can_dump(scope_num); --scope_num;}
+;
+
+else_stat_part1
+    : ELSE  {++scope_num;}
+;
+
+else_stat_part2
+    : stat SEMICOLON
+    | LCB stat_list RCB
+    | SEMICOLON
 ;
 
 logical_stats
@@ -224,49 +324,68 @@ logical_operation
 ;
 
 while_stat
-    : WHILE LB logical_stats RB SEMICOLON
-    | WHILE LB logical_stats RB stat SEMICOLON
-    | WHILE LB logical_stats RB LCB stat_list RCB 
+    : while_stat_part1 while_stat_part2 {can_dump(scope_num); --scope_num;}
+;
+
+while_stat_part1
+    : WHILE LB logical_stats RB {++scope_num;}
+;
+
+while_stat_part2
+    : SEMICOLON
+    | stat SEMICOLON
+    | LCB stat_list RCB
 ;
 
 expression_stat
-    : assignment_stat 
-    | function_call
+    : assignment_stat SEMICOLON
+    | function_call SEMICOLON
     | RETURN arithmetic_stat SEMICOLON
 ;
 
 assignment_stat
-    : ID ASGN arithmetic_stat SEMICOLON
-    | ID ADDASGN arithmetic_stat SEMICOLON
-    | ID SUBASGN arithmetic_stat SEMICOLON
-    | ID MULASGN arithmetic_stat SEMICOLON
-    | ID DIVASGN arithmetic_stat SEMICOLON
-    | ID MODASGN arithmetic_stat SEMICOLON
-    | arithmetic_stat SEMICOLON
+    : ID ASGN arithmetic_stat
+    | ID ADDASGN arithmetic_stat
+    | ID SUBASGN arithmetic_stat
+    | ID MULASGN arithmetic_stat
+    | ID DIVASGN arithmetic_stat
+    | ID MODASGN arithmetic_stat
+    | arithmetic_stat
     | assignment_stat COMMA assignment_stat
 ;
 
 function_call
-    : ID LB function_send_parameter RB SEMICOLON
+    : ID LB function_send_parameter RB {
+        if(lookup_symbol($1) == -1)
+            print_error("Undeclared function ", $1);
+    }
 ;
 
 function_send_parameter
     : function_send_parameter COMMA arithmetic_stat
     | arithmetic_stat
+    | logical_stats
 ;
 
 print_func
-    : PRINT LB ID RB SEMICOLON 
-    | PRINT LB STRING_TEXT RB SEMICOLON 
+    : PRINT LB print_item RB 
+;
+
+print_item
+    : ID    {
+        if(lookup_symbol($1) == -1)
+            print_error("Undeclared variable ", $1);
+    }
+    | STRING_TEXT
 ;
 
 /* actions can be taken when meet the token or rule */
 type
-    : INT
-    | FLOAT
-    | BOOL
-    | STRING
-    | VOID
+    : INT       {$$ = 1;}
+    | FLOAT     {$$ = 2;}
+    | BOOL      {$$ = 3;}
+    | STRING    {$$ = 4;}
+    | VOID      {$$ = 5;}
 ;
 
 %%
@@ -276,17 +395,26 @@ int main(int argc, char** argv)
 {
     yylineno = 0;
     create_symbol();
+    reset_function_array();
 
     yyparse();
-	printf("\nTotal lines: %d \n",yylineno);
+    if(syntax_error_flag == 0){
+        dump_symbol(scope_num);
+        printf("\nTotal lines: %d \n",yylineno);
+    }
 
     return 0;
 }
 
 void yyerror(char *s)
 {
+    if(had_print_flag == 0){
+        printf("%d: %s\n", yylineno+1, buf);
+        had_print_flag = 1;
+    }
+    if(strstr(s, "syntax") != NULL) syntax_error_flag = 1;
     printf("\n|-----------------------------------------------|\n");
-    printf("| Error found in line %d: %s\n", yylineno, buf);
+    printf("| Error found in line %d: %s\n", yylineno+1, buf);
     printf("| %s", s);
     printf("\n|-----------------------------------------------|\n\n");
 }
@@ -303,120 +431,157 @@ void create_symbol() {
     head->back = head;
 }
 
-void insert_symbol(char* Name, int Kind, int Type, int* Attribute) {
-    if(head->index == -1){
-        head->index = index_num;
-        head->name = (char*)malloc(sizeof(char)*strlen(Name)+1);
-        strncpy(head->name, Name, strlen(Name));
-        head->kind = Kind;
-        head->type = Type;
-        head->scope = scope_num;
-        
-        if(function_parameter_num > 0){
-            head->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
-            for(int i = 0; i<function_parameter_num; ++i)
-                head->attribute[i] = Attribute[i];
-        }
-        head->next = NULL;
-        head->back = head;
-    }
-    else{
-        parse_table* temp = head;
-        while(temp->next != NULL)   temp = temp->next;
-        temp->next = (parse_table*)malloc(sizeof(parse_table));
-        temp->next->back = temp;
-        temp = temp->next;
+void insert_symbol(char* Name, int Kind, int Type) {
+    //printf("insert_symbol:%s, %d, %d\n", Name, Kind, Type);
 
-        temp->index = index_num;
-        head->name = (char*)malloc(sizeof(char)*strlen(Name)+1);
-        strncpy(temp->name, Name, strlen(Name));
-        temp->kind = Kind;
-        temp->type = Type;
-        temp->scope = scope_num;
+    parse_table* temp = head;
+    while(temp->next != NULL)   temp = temp->next;
+    temp->next = (parse_table*)malloc(sizeof(parse_table));
+    temp->next->back = temp;
+    temp = temp->next;
 
-        if(function_parameter_num > 0){
-            temp->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
-            for(int i = 0; i<function_parameter_num; ++i)
-                temp->attribute[i] = Attribute[i];
-        }
-        temp->next = NULL;
+    temp->index = index_num;
+    temp->name = (char*)malloc(sizeof(char)*strlen(Name)+1);
+    strncpy(temp->name, Name, strlen(Name));
+    temp->kind = Kind;
+    temp->type = Type;
+    temp->scope = scope_num;
+
+    /*
+    if(function_parameter_num > 0){
+        temp->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
+        for(int i = 0; i<function_parameter_num; ++i)
+            temp->attribute[i] = function_parameter_array[i];
     }
+    */
+
+    temp->next = NULL;
     index_num++;
-    function_parameter_num = 0;
 }
 
 int lookup_symbol(char* Name) {
-    if(head->index == -1){
-        yyerror(("Undeclared variable %s", Name));
-    }
-    else{
-        parse_table* temp = head;
-        while(temp->next != NULL){
-            if(strcmp(temp->name, Name) == 0)   return 0;
-            temp = temp->next;
-        }   
-        yyerror(("Undeclared variable %s", Name));
-    }
+    //printf("lookup_symbol\n");
+    //printf("Name: %s\n", Name);
+    parse_table* temp = head;
+    while(temp->next != NULL){
+        temp = temp->next;
+        if(strcmp(temp->name, Name) == 0 && temp->scope == scope_num)   return 0;
+        if(strcmp(temp->name, Name) == 0 && temp->scope < scope_num)   return 1;
+    }   
+    return -1;
 }
 
 void dump_symbol(int dump_scope_num) {
+
+    int table_has_element_flag = 0;
+    parse_table* element = head;
+    while(element->next != NULL){
+        element = element->next;
+        if(element->scope == dump_scope_num)
+            table_has_element_flag = 1;
+    }
+    if(table_has_element_flag == 0) return;
+
+    //printf("dump_symbol: %d\n", dump_scope_num);
     int index_count = 0;
     printf("\n%-10s%-10s%-12s%-10s%-10s%-10s\n\n",
            "Index", "Name", "Kind", "Type", "Scope", "Attribute");
-    if(head->index != -1){
-        parse_table* temp = head;
-        do{
-            if(temp->scope == dump_scope_num){
-                printf("\n%-10d", index_count);
-                printf("%-10s", temp->name);
+    parse_table* temp = head;
+    while(temp->next != NULL)
+    {
+        temp = temp->next;
+        if(temp->scope == dump_scope_num){
+            printf("%-10d", index_count);
+            printf("%-10s", temp->name);
 
-                if(temp->kind ==1)          printf("%-12s", "variable");
-                else if (temp->kind ==2)    printf("%-12s", "function");
+            if(temp->kind ==1)          printf("%-12s", "variable");
+            else if (temp->kind ==2)    printf("%-12s", "function");
+            else if (temp->kind ==3)    printf("%-12s", "parameter");
 
-                if(temp->type == 1)         printf("%-10s", "int");
-                else if(temp->type == 2)    printf("%-10s", "float");
-                else if(temp->type == 3)    printf("%-10s", "bool");
-                else if(temp->type == 4)    printf("%-10s", "string");
-                else if(temp->type == 5)    printf("%-10s", "void");
+            if(temp->type == 1)         printf("%-10s", "int");
+            else if(temp->type == 2)    printf("%-10s", "float");
+            else if(temp->type == 3)    printf("%-10s", "bool");
+            else if(temp->type == 4)    printf("%-10s", "string");
+            else if(temp->type == 5)    printf("%-10s", "void");
 
-                printf("%-10d", dump_scope_num);
+            printf("%-10d", dump_scope_num);
 
-                if(temp->attribute != NULL){
-                    if(temp->attribute[0] == 1)         printf("int");
-                    else if(temp->attribute[0] == 2)    printf("float");
-                    else if(temp->attribute[0] == 3)    printf("bool");
-                    else if(temp->attribute[0] == 4)    printf("string");
-                    else if(temp->attribute[0] == 5)    printf("void");
-                    for(int i=1; i< sizeof(temp->attribute)/sizeof(temp->attribute[0]); ++i){
-                        if(temp->attribute[i] == 1)         printf(", int");
-                        else if(temp->attribute[i] == 2)    printf(", float");
-                        else if(temp->attribute[i] == 3)    printf(", bool");
-                        else if(temp->attribute[i] == 4)    printf(", string");
-                        else if(temp->attribute[i] == 5)    printf(", void");
-                    }
+            if(temp->attribute != NULL){
+                if(temp->attribute[0] == 1)         printf("int");
+                else if(temp->attribute[0] == 2)    printf("float");
+                else if(temp->attribute[0] == 3)    printf("bool");
+                else if(temp->attribute[0] == 4)    printf("string");
+                else if(temp->attribute[0] == 5)    printf("void");
+                for(int i=1; i< sizeof(temp->attribute)/sizeof(temp->attribute[0]); ++i){
+                    if(temp->attribute[i] == 1)         printf(", int");
+                    else if(temp->attribute[i] == 2)    printf(", float");
+                    else if(temp->attribute[i] == 3)    printf(", bool");
+                    else if(temp->attribute[i] == 4)    printf(", string");
+                    else if(temp->attribute[i] == 5)    printf(", void");
                 }
-                printf("\n");
-                index_count++;
             }
-            temp = temp->next;
-        }while(temp != NULL);
-        clear_symbol(dump_scope_num);
+            printf("\n");
+            index_count++;
+        }
     }
+    printf("\n");
+    clear_symbol(dump_scope_num);
+}
+
+void set_function_parameter(){
+    parse_table *temp = head;
+    while(temp -> next != NULL)     temp = temp -> next;
+    while(temp->kind != 2)  temp = temp -> back;
+    temp->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
+    for(int i=0; i<function_parameter_num; ++i){
+        temp->attribute[i] = function_parameter_array[i];
+    }
+    reset_function_array();
+}
+
+void set_symbol_type(int Type){
+    parse_table *temp = head;
+    while(temp -> next != NULL)     temp = temp -> next;
+    for(int i=0; i<variable_declare_count; ++i){
+        temp->type = Type;
+        temp = temp -> back;
+    }
+
+    variable_declare_count = 0;
 }
 
 void clear_symbol(int scope_num){
     if(scope_num != 0){
         parse_table* temp = head;
-        if(temp->index != -1){
-            while(temp->next != NULL){
-                if(temp->scope == scope_num){
+
+        while(temp->next != NULL){
+            temp = temp -> next;
+            if(temp->scope == scope_num){
+                if(temp->next != NULL){
                     temp->back->next = temp->next;
                     temp->next->back = temp->back;
-                    parse_table* deletenode = temp;
-                    temp = temp -> next;
-                    free(deletenode);
                 }
+                else temp->back->next = NULL;
+                parse_table* deletenode = temp;
+                temp = temp -> back;
+                free(deletenode);
             }
         }
+
     }
+}
+
+void reset_function_array(){
+    for(int i=0; i<512; ++i)
+        function_parameter_array[i] = -1;
+    function_parameter_num = 0;
+}
+
+void print_error(char* msg, char* Name){
+    sprintf(error_buf, "%s%s", msg, Name);
+    yyerror(error_buf);
+}
+
+void can_dump(int dump_scope_num){
+    dump_scope_flag = dump_scope_num;
 }
