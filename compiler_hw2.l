@@ -137,7 +137,10 @@ int yywrap()
 
 void printbuf(){
     if(had_print_flag == 0){
-        printf("%d: %s", yylineno, buf);
+        if(buf[0] == '\n')
+            printf("%d:%s", yylineno, buf);
+        else
+            printf("%d: %s", yylineno, buf);
         CLEANBUF;
         if(dump_scope_flag >= 0){
             dump_symbol(dump_scope_flag);

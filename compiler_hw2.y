@@ -169,6 +169,7 @@ arithmetic_stat
     : lv2_arithmetic_stat ADD arithmetic_stat
     | lv2_arithmetic_stat SUB arithmetic_stat
     | lv2_arithmetic_stat
+    | LB arithmetic_stat RB
 ;
 
 lv2_arithmetic_stat
@@ -176,6 +177,7 @@ lv2_arithmetic_stat
     | lv3_arithmetic_stat DIV lv2_arithmetic_stat
     | lv3_arithmetic_stat MOD lv2_arithmetic_stat
     | lv3_arithmetic_stat
+    | LB lv2_arithmetic_stat RB
 ;
 
 lv3_arithmetic_stat
@@ -184,6 +186,7 @@ lv3_arithmetic_stat
     | lv3_arithmetic_stat INC
     | lv3_arithmetic_stat DEC
     | value_stat
+    | LB lv3_arithmetic_stat RB
 ;
 
 
@@ -193,6 +196,7 @@ value_stat
     | SUB value_stat;
     | STRING_TEXT
     | value
+    | LB value_stat RB
 ;
 
 value
@@ -226,22 +230,10 @@ function_declation_part1
 ;
 
 function_declation_part2
-    : function_parameter_decl RB SEMICOLON
+    : function_parameter RB SEMICOLON
     | RB SEMICOLON
     | function_parameter RB LCB stat_list RCB
     | RB LCB stat_list RCB
-;
-
-
-function_parameter_decl
-    : type {
-        function_parameter_array[function_parameter_num] = $1;
-        ++function_parameter_num;
-    }
-    | function_parameter_decl COMMA type    {
-        function_parameter_array[function_parameter_num] = $3;
-        ++function_parameter_num;
-    }
 ;
 
 function_parameter
@@ -341,6 +333,7 @@ expression_stat
     : assignment_stat SEMICOLON
     | function_call SEMICOLON
     | RETURN arithmetic_stat SEMICOLON
+    | RETURN SEMICOLON
 ;
 
 assignment_stat
@@ -399,6 +392,11 @@ int main(int argc, char** argv)
 
     yyparse();
     if(syntax_error_flag == 0){
+        if(buf[0] != '\0'){
+            printf("%d: %s\n", yylineno+1, buf);
+            ++yylineno;
+        }
+            
         dump_symbol(scope_num);
         printf("\nTotal lines: %d \n",yylineno);
     }
@@ -409,7 +407,10 @@ int main(int argc, char** argv)
 void yyerror(char *s)
 {
     if(had_print_flag == 0){
-        printf("%d: %s\n", yylineno+1, buf);
+        if(buf[0] == '\n')
+            printf("%d:%s", yylineno, buf);
+        else
+            printf("%d: %s\n", yylineno+1, buf);
         had_print_flag = 1;
     }
     if(strstr(s, "syntax") != NULL) syntax_error_flag = 1;
