@@ -42,6 +42,7 @@ int scope_num = 0;
 int index_num = 0;
 int function_parameter_num = 0;
 int variable_declare_count = 0;
+int function_initial_flag = 0;
 int function_parameter_array[512];
 char error_buf[128];
 int had_print_flag = 0;
@@ -212,10 +213,18 @@ value
 
 funtcion_declation
     : function_declation_part1 function_declation_part2 {
-        if(function_parameter_num > 0)
-            set_function_parameter();
-        can_dump(scope_num);
+        if(function_initial_flag == 1){
+            if(function_parameter_num > 0)
+                set_function_parameter();
+            can_dump(scope_num);
+        }
+        else if(function_initial_flag == 0){
+            if(function_parameter_num > 0)
+                set_function_parameter();
+            clear_symbol(scope_num);
+        }
         --scope_num;
+        function_initial_flag = 0;
     }
 ;
 
@@ -230,10 +239,10 @@ function_declation_part1
 ;
 
 function_declation_part2
-    : function_parameter RB SEMICOLON
-    | RB SEMICOLON
-    | function_parameter RB LCB stat_list RCB
-    | RB LCB stat_list RCB
+    : function_parameter RB SEMICOLON   {function_initial_flag = 0;}
+    | RB SEMICOLON  {function_initial_flag = 0;}
+    | function_parameter RB LCB stat_list RCB   {function_initial_flag = 1;}
+    | RB LCB stat_list RCB  {function_initial_flag = 1;}
 ;
 
 function_parameter
