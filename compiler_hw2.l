@@ -9,6 +9,7 @@ char buf[BUF_SIZE];
 extern int had_print_flag;
 extern int dump_scope_flag;
 extern void dump_symbol(int);
+extern void print_error_after_line();
 
 /* This macro is used to record code line */
 #define CONCAT { strncat(buf, yytext, BUF_SIZE - strlen(buf) - 1); }
@@ -141,6 +142,7 @@ void printbuf(){
             printf("%d:%s", yylineno, buf);
         else
             printf("%d: %s", yylineno, buf);
+        print_error_after_line();
         CLEANBUF;
         if(dump_scope_flag >= 0){
             dump_symbol(dump_scope_flag);
@@ -150,9 +152,11 @@ void printbuf(){
     else{
         had_print_flag = 0;
         CLEANBUF;
+        print_error_after_line();
         if(dump_scope_flag >= 0){
             dump_symbol(dump_scope_flag);
             dump_scope_flag = -1;
         }
     }
+    
 }

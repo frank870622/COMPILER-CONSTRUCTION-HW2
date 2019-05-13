@@ -1,13 +1,10 @@
-int main(){
-    int a = 3;
-    int a = 4;
-    int c;
-    float d, e;
-}
+int a = 3;
+int b = 3;
 
-bool hello(int n, int m) {
-    while (n > m) {
-        n--;
-    }
-    return true;
+if(a > b){
+    int c = 4;
+    print(a);
+}else{
+    int d = 7;
+    print(b);
 }

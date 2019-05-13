@@ -48,6 +48,7 @@ char error_buf[128];
 int had_print_flag = 0;
 int dump_scope_flag = -1;
 int syntax_error_flag = 0;
+int print_error_flag = 0;
 
 void reset_function_array();
 void print_error(char*, char*);
@@ -415,6 +416,7 @@ int main(int argc, char** argv)
 
 void yyerror(char *s)
 {
+    /*
     if(had_print_flag == 0){
         if(buf[0] == '\n')
             printf("%d:%s", yylineno, buf);
@@ -422,9 +424,32 @@ void yyerror(char *s)
             printf("%d: %s\n", yylineno+1, buf);
         had_print_flag = 1;
     }
+    */
     if(strstr(s, "syntax") != NULL) syntax_error_flag = 1;
+
+    if(print_error_flag != 0){
+        if(had_print_flag == 0){
+            if(buf[0] == '\n')
+                printf("%d:%s", yylineno, buf);
+            else
+                printf("%d: %s\n", yylineno+1, buf);
+            had_print_flag = 1;
+        }
+        print_error_flag = 0;
+        printf("\n|-----------------------------------------------|\n");
+        if(syntax_error_flag == 1)
+            printf("| Error found in line %d: %s\n", yylineno+1, buf);
+        else
+            printf("| Error found in line %d: %s", yylineno, buf);
+        printf("| %s", error_buf);
+        printf("\n|-----------------------------------------------|\n\n");
+    }
+
     printf("\n|-----------------------------------------------|\n");
-    printf("| Error found in line %d: %s\n", yylineno+1, buf);
+    if(syntax_error_flag == 1)
+        printf("| Error found in line %d: %s\n", yylineno+1, buf);
+    else 
+        printf("| Error found in line %d: %s", yylineno, buf);
     printf("| %s", s);
     printf("\n|-----------------------------------------------|\n\n");
 }
@@ -587,9 +612,19 @@ void reset_function_array(){
     function_parameter_num = 0;
 }
 
+
+
 void print_error(char* msg, char* Name){
     sprintf(error_buf, "%s%s", msg, Name);
-    yyerror(error_buf);
+    print_error_flag = 1;
+}
+
+void print_error_after_line(){
+    if(print_error_flag != 0){
+        print_error_flag = 0;
+        yyerror(error_buf);
+    }
+    print_error_flag = 0;
 }
 
 void can_dump(int dump_scope_num){
