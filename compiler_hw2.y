@@ -234,7 +234,10 @@ function_declation_part1
         if(lookup_symbol($2) == -1){
             insert_symbol($2, 2, $1);
         }
-        else print_error("Redeclared function ", $2);
+        else {
+            //print_error("Redeclared function ", $2);
+        }
+        
         ++scope_num;
     }
 ;
