@@ -350,12 +350,30 @@ expression_stat
 ;
 
 assignment_stat
-    : ID ASGN arithmetic_stat
-    | ID ADDASGN arithmetic_stat
-    | ID SUBASGN arithmetic_stat
-    | ID MULASGN arithmetic_stat
-    | ID DIVASGN arithmetic_stat
-    | ID MODASGN arithmetic_stat
+    : ID ASGN arithmetic_stat {
+        if(lookup_symbol($1) == -1)
+            print_error("Undeclared variable ", $1);
+    }
+    | ID ADDASGN arithmetic_stat {
+        if(lookup_symbol($1) == -1)
+            print_error("Undeclared variable ", $1);
+    }
+    | ID SUBASGN arithmetic_stat {
+        if(lookup_symbol($1) == -1)
+            print_error("Undeclared variable ", $1);
+    }
+    | ID MULASGN arithmetic_stat {
+        if(lookup_symbol($1) == -1)
+            print_error("Undeclared variable ", $1);
+    }
+    | ID DIVASGN arithmetic_stat {
+        if(lookup_symbol($1) == -1)
+            print_error("Undeclared variable ", $1);
+    }
+    | ID MODASGN arithmetic_stat {
+        if(lookup_symbol($1) == -1)
+            print_error("Undeclared variable ", $1);
+    }
     | arithmetic_stat
     | assignment_stat COMMA assignment_stat
 ;
