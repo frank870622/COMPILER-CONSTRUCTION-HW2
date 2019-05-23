@@ -440,15 +440,7 @@ int main(int argc, char** argv)
 
 void yyerror(char *s)
 {
-    /*
-    if(had_print_flag == 0){
-        if(buf[0] == '\n')
-            printf("%d:%s", yylineno, buf);
-        else
-            printf("%d: %s\n", yylineno+1, buf);
-        had_print_flag = 1;
-    }
-    */
+    
     if(strstr(s, "syntax") != NULL) syntax_error_flag = 1;
 
     if(print_error_flag != 0){
@@ -469,6 +461,15 @@ void yyerror(char *s)
         printf("\n|-----------------------------------------------|\n\n");
     }
 
+    
+    if(had_print_flag == 0 && syntax_error_flag == 1){
+        if(buf[0] == '\n')
+            printf("%d:%s", yylineno, buf);
+        else
+            printf("%d: %s\n", yylineno+1, buf);
+        had_print_flag = 1;
+    }
+    
     printf("\n|-----------------------------------------------|\n");
     if(syntax_error_flag == 1)
         printf("| Error found in line %d: %s\n", yylineno+1, buf);

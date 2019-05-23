@@ -1,9 +1,22 @@
-int a = 3;
-int b = 3;
+int aa = 0;
+int b = 1;
+int c = 100;
+float f = 2.2;
+b = c % f;
 
-int hello(int a, int b);
-int hello(int a, int b);
-int hello(int a, int b){
-    print(a);
-    d = 3; 
+void main(){
+	int a = 20;
+    if (a == 40){
+        print("a is equal to 40");
+    }
+    else if (a > 40){
+        print("a is larger than 40");
+    }
+     else{
+        print(666);
+    }
+
+	return;
 }
+
+
