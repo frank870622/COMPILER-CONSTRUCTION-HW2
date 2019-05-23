@@ -213,6 +213,7 @@ value
         if(lookup_symbol($1) == -1)
             print_error("Undeclared variable ", $1);
     }
+    | function_call
 ;
 
 funtcion_declation
@@ -312,7 +313,7 @@ else_stat_part1
 ;
 
 else_stat_part2
-    : stat SEMICOLON
+    : stat
     | LCB stat_list RCB
     | SEMICOLON
 ;
@@ -347,7 +348,7 @@ while_stat_part1
 
 while_stat_part2
     : SEMICOLON
-    | stat SEMICOLON
+    | stat
     | LCB stat_list RCB
 ;
 
@@ -401,15 +402,8 @@ function_send_parameter
 ;
 
 print_func
-    : PRINT LB print_item RB 
-;
-
-print_item
-    : ID    {
-        if(lookup_symbol($1) == -1)
-            print_error("Undeclared variable ", $1);
-    }
-    | STRING_TEXT
+    : PRINT LB value RB 
+    | PRINT LB STRING_TEXT RB 
 ;
 
 /* actions can be taken when meet the token or rule */
