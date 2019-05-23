@@ -1,10 +1,9 @@
 int a = 3;
 int b = 3;
 
-if(a > b){
-    int c = 4;
+int hello(int a, int b);
+int hello(int a, int b);
+int hello(int a, int b){
     print(a);
-}else{
-    int d = 7;
-    print(b);
+    d = 3; 
 }

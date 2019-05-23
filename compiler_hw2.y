@@ -43,6 +43,7 @@ int index_num = 0;
 int function_parameter_num = 0;
 int variable_declare_count = 0;
 int function_initial_flag = 0;
+int function_has_declare_flag = 0;
 int function_parameter_array[512];
 char error_buf[128];
 int had_print_flag = 0;
@@ -64,6 +65,7 @@ void can_dump(int);
     int i_val;
     double f_val;
     char* string;
+    char char_array[50];
 }
 
 /* Token without return */
@@ -99,6 +101,7 @@ void can_dump(int);
 
 /* Nonterminal with return, which need to sepcify type */
 %type <i_val> type
+%type <char_array> function_declation_part1
 
 /* Yacc will start at this nonterminal */
 %start program
@@ -223,6 +226,11 @@ funtcion_declation
             if(function_parameter_num > 0)
                 set_function_parameter();
             clear_symbol(scope_num);
+
+            if(function_has_declare_flag == 1){
+                print_error("Redeclared function ", $1);
+            }
+            function_has_declare_flag = 0;
         }
         --scope_num;
         function_initial_flag = 0;
@@ -235,9 +243,10 @@ function_declation_part1
             insert_symbol($2, 2, $1);
         }
         else {
-            //print_error("Redeclared function ", $2);
+            function_has_declare_flag = 1;
+            
         }
-        
+        sprintf($$, "%s", $2);
         ++scope_num;
     }
 ;
