@@ -32,6 +32,7 @@ typedef struct parse_table{
     int scope;
     // 1:int 2:float 3:bool 4:string 5:void
     int* attribute;
+    int parameter_num;
     struct parse_table* next;
     struct parse_table* back;
 }parse_table;
@@ -324,13 +325,13 @@ logical_stats
 ;
 
 logical_stat
-    : value_stat MT value_stat
-    | value_stat LT value_stat
-    | value_stat MTE value_stat
-    | value_stat LTE value_stat
-    | value_stat EQ value_stat
-    | value_stat NE value_stat
-    | value_stat
+    : arithmetic_stat MT arithmetic_stat
+    | arithmetic_stat LT arithmetic_stat
+    | arithmetic_stat MTE arithmetic_stat
+    | arithmetic_stat LTE arithmetic_stat
+    | arithmetic_stat EQ arithmetic_stat
+    | arithmetic_stat NE arithmetic_stat
+    | arithmetic_stat
 ;
 
 logical_operation
@@ -396,8 +397,7 @@ function_call
 ;
 
 function_send_parameter
-    : function_send_parameter COMMA arithmetic_stat
-    | arithmetic_stat
+    : function_send_parameter COMMA logical_stats
     | logical_stats
 ;
 
@@ -572,7 +572,7 @@ void dump_symbol(int dump_scope_num) {
                 else if(temp->attribute[0] == 3)    printf("bool");
                 else if(temp->attribute[0] == 4)    printf("string");
                 else if(temp->attribute[0] == 5)    printf("void");
-                for(int i=1; i< sizeof(temp->attribute)/sizeof(temp->attribute[0]); ++i){
+                for(int i=1; i< temp->parameter_num; ++i){
                     if(temp->attribute[i] == 1)         printf(", int");
                     else if(temp->attribute[i] == 2)    printf(", float");
                     else if(temp->attribute[i] == 3)    printf(", bool");
@@ -593,6 +593,7 @@ void set_function_parameter(){
     while(temp -> next != NULL)     temp = temp -> next;
     while(temp->kind != 2)  temp = temp -> back;
     temp->attribute = (int*)malloc(sizeof(int)*function_parameter_num);
+    temp->parameter_num = function_parameter_num;
     for(int i=0; i<function_parameter_num; ++i){
         temp->attribute[i] = function_parameter_array[i];
     }
